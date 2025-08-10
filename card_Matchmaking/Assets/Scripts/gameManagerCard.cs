@@ -61,6 +61,7 @@ public class gameManagerCard : MonoBehaviour
 
     void Start()
     {
+        SetRandomRowsAndColumns();
         Cards = new List<Card>();
         cardIds = new List<int>();
 
@@ -91,6 +92,13 @@ public class gameManagerCard : MonoBehaviour
         lastChildCount = cardHolder.childCount;
 
         UpdateScoreUI();
+    }
+
+    void SetRandomRowsAndColumns()
+    {
+        rows = Random.Range(2, 5);    // 2, 3, or 4
+        columns = Random.Range(2, 5); // 2, 3, or 4
+      
     }
 
     void Update()
@@ -304,7 +312,7 @@ public class gameManagerCard : MonoBehaviour
             if (card != null) Destroy(card.gameObject);
 
         Cards.Clear();
-
+        SetRandomRowsAndColumns();
         SetupGrid(rows, columns);
         CreateCard(rows * columns);
 

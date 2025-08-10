@@ -1546,8 +1546,8 @@ MonoBehaviour:
   - {fileID: 21300000, guid: f8d3eccb37f550846b1a248657174a10, type: 3}
   - {fileID: 21300000, guid: eb69387601294a44c8d2a6f02c4228e9, type: 3}
   cardHolder: {fileID: 1738896643}
-  rows: 2
-  columns: 2
+  rows: 5
+  columns: 5
   spacing: {x: 0.5, y: 0.5}
   FinalUi: {fileID: 76313213}
   TimmerText: {fileID: 1149022220}
