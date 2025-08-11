@@ -24,6 +24,9 @@ public class gameManagerCard : MonoBehaviour
     public TextMeshProUGUI TimmerText;
     public TextMeshProUGUI Finaltext;
     public TextMeshProUGUI ScoreText;
+    public TextMeshProUGUI TriesText;
+    public TextMeshProUGUI HighScoreText;
+    public TextMeshProUGUI MatchedText; // NEW — matched pairs UI
 
     [Header("Game Settings")]
     public float maxtime = 60f;
@@ -43,15 +46,21 @@ public class gameManagerCard : MonoBehaviour
     private int Totalpairs;
     private float Timmer;
     private int score;
+    private int tries;
     private bool isGameover;
     private bool isGamefinished;
+    public bool ispause;
     private GridLayoutGroup gridLayout;
 
     private Vector2 lastScreenSize;
     private int lastChildCount;
 
+    public GameObject PauseScreen;
+    public GameObject Gamewon;
+
     private const string SaveKeyScore = "CardGame_Score";
     private const string SaveKeyTime = "CardGame_Time";
+    private const string SaveKeyHighScore = "CardGame_HighScore";
 
     private void Awake()
     {
@@ -61,11 +70,16 @@ public class gameManagerCard : MonoBehaviour
 
     void Start()
     {
+        //TogglePause();
         SetRandomRowsAndColumns();
         Cards = new List<Card>();
         cardIds = new List<int>();
 
         LoadProgress();
+
+        tries = 0;
+        UpdateTriesUI();
+        UpdateMatchedUI(); // NEW — show initial matched pairs
 
         isGamefinished = false;
         isGameover = false;
@@ -96,9 +110,8 @@ public class gameManagerCard : MonoBehaviour
 
     void SetRandomRowsAndColumns()
     {
-        rows = Random.Range(2, 5);    // 2, 3, or 4
-        columns = Random.Range(2, 5); // 2, 3, or 4
-      
+        rows = Random.Range(2, 5);
+        columns = Random.Range(3, 5);
     }
 
     void Update()
@@ -183,6 +196,8 @@ public class gameManagerCard : MonoBehaviour
     {
         Totalpairs = Mathf.Max(1, totalCards / 2);
         Pairsmatched = 0;
+        UpdateMatchedUI(); // NEW — reset match count
+
         cardIds.Clear();
 
         for (int i = 0; i < Totalpairs; i++)
@@ -224,6 +239,10 @@ public class gameManagerCard : MonoBehaviour
         else if (secondCard == null)
         {
             secondCard = flippedCard;
+
+            tries++;
+            UpdateTriesUI();
+
             CheckMatch();
         }
     }
@@ -240,6 +259,8 @@ public class gameManagerCard : MonoBehaviour
             PlaySound(matchSound);
 
             Pairsmatched++;
+            UpdateMatchedUI(); // NEW — refresh matched UI
+
             firstcard = null;
             secondCard = null;
 
@@ -276,15 +297,42 @@ public class gameManagerCard : MonoBehaviour
         isGameover = true;
         PlaySound(gameOverSound);
         FinalPanel();
+        TogglePause();  
     }
 
     void FinalPanel()
     {
         FinalUi.SetActive(true);
+
+        int highScore = PlayerPrefs.GetInt(SaveKeyHighScore, 0);
+        if (score > highScore)
+        {
+            highScore = score;
+            PlayerPrefs.SetInt(SaveKeyHighScore, highScore);
+            PlayerPrefs.Save();
+        }
+
+        if (HighScoreText != null)
+            HighScoreText.text = "High Score: " + highScore;
+
+        //if (isGamefinished)
+        //    Finaltext.text = $"Level Finished!\nTime Left: {Mathf.Round(Timmer)}s\nScore: {score}\nTries: {tries}\nMatches: {Pairsmatched}/{Totalpairs}";
+        //else if (isGameover)
+        //    Finaltext.text = $"GAME OVER!\nScore: {score}\nTries: {tries}\nMatches: {Pairsmatched}/{Totalpairs}";
         if (isGamefinished)
-            Finaltext.text = $"Level Finished! Time Left: {Mathf.Round(Timmer)}s\nScore: {score}";
+        {
+
+            Gamewon.SetActive(true);
+            PauseScreen.SetActive(false);
+            Finaltext.transform.gameObject.SetActive(false);    
+        }
         else if (isGameover)
-            Finaltext.text = $"GAME OVER! TIME FINISHED\nScore: {score}";
+        {
+            Finaltext.transform.gameObject.SetActive(true);
+            Gamewon.SetActive(false);
+            PauseScreen.SetActive(false);
+            Finaltext.text = $"GAME OVER!\nScore: {score}\nTries: {tries}\nMatches: {Pairsmatched}/{Totalpairs}";
+        }
     }
 
     void UpdateTimmerText()
@@ -299,11 +347,26 @@ public class gameManagerCard : MonoBehaviour
             ScoreText.text = "Score: " + score;
     }
 
+    void UpdateTriesUI()
+    {
+        if (TriesText != null)
+            TriesText.text = "Tries: " + tries;
+    }
+
+    void UpdateMatchedUI() // NEW
+    {
+        if (MatchedText != null)
+            MatchedText.text = "Matches: " + Pairsmatched + "/" + Totalpairs;
+    }
+
     public void Restart()
     {
+        TogglePause();
+        Time.timeScale = 1;
         Pairsmatched = 0;
         Timmer = maxtime;
         score = 0;
+        tries = 0;
         isGameover = false;
         isGamefinished = false;
         FinalUi.SetActive(false);
@@ -317,7 +380,10 @@ public class gameManagerCard : MonoBehaviour
         CreateCard(rows * columns);
 
         UpdateScoreUI();
+        UpdateTriesUI();
+        UpdateMatchedUI(); // NEW
         SaveProgress();
+        
     }
 
     void PlaySound(AudioClip clip)
@@ -338,4 +404,52 @@ public class gameManagerCard : MonoBehaviour
         score = PlayerPrefs.GetInt(SaveKeyScore, 0);
         Timmer = PlayerPrefs.GetFloat(SaveKeyTime, maxtime);
     }
+    public void Quit()
+    {
+#if UNITY_EDITOR
+        Debug.Log("Quit called - Game would close in a build.");
+        UnityEditor.EditorApplication.isPlaying = false;
+#else
+    if (Application.platform == RuntimePlatform.Android)
+    {
+        Debug.Log("Closing on Android...");
+        Application.Quit();
+    }
+    else if (Application.platform == RuntimePlatform.WindowsPlayer)
+    {
+        Debug.Log("Closing on Windows...");
+        Application.Quit();
+    }
+    else
+    {
+        Debug.Log("Quit called on: " + Application.platform);
+        Application.Quit();
+    }
+#endif
+    }
+
+    public void TogglePause()
+    {
+        ispause = !ispause;
+
+        if (ispause)
+        {
+            Time.timeScale = 0f;  // Stop game updates
+        }
+        else
+        {
+            Time.timeScale = 1f;  // Resume game updates
+        }
+    }
+
+
+    public void pause()
+    {
+        FinalUi.SetActive(true);
+        Finaltext.transform.gameObject.SetActive(false);
+        PauseScreen.SetActive(true);
+        Finaltext.transform.gameObject.SetActive(false);
+        TogglePause();
+    }
+
 }
